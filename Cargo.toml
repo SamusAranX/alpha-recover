@@ -1,6 +1,7 @@
 [package]
 name = "realpha"
 version = "1.0.0"
+repository = "https://github.com/SamusAranX/realpha"
 edition = "2021"
 
 [dependencies]
