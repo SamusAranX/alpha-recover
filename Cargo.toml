@@ -1,12 +1,14 @@
 [package]
 name = "realpha"
-version = "1.0.1"
+version = "1.0.2"
 repository = "https://github.com/SamusAranX/realpha"
 edition = "2021"
+rust-version = "1.78.0"
 
 [dependencies]
 clap = { version = "4.5.4", features = ["derive"] }
-image = "0.25.1"
+image = { version = "0.25.1", features = ["rayon"] }
+rayon = "1.10.0"
 
 # The profile that 'cargo dist' will build with
 [profile.dist]

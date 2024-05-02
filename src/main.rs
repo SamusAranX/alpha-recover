@@ -3,8 +3,10 @@ use std::path::PathBuf;
 use std::time::Instant;
 
 use clap::Parser;
-use image::{ColorType, DynamicImage, GenericImageView, ImageBuffer};
+use image::{ColorType, DynamicImage, GenericImageView, ImageBuffer, ImageFormat};
+use image::DynamicImage::ImageRgba16;
 use image::io::Reader as ImageReader;
+use rayon::iter::ParallelIterator;
 
 #[derive(clap::ValueEnum, Clone, Default)]
 enum Blend {
@@ -74,7 +76,7 @@ fn magic(black_pixel: [f32; 3], white_pixel: [f32; 3], blend: &Blend) -> [f64; 4
 	);
 
 	let (alpha, mut rs, mut gs, mut bs) = (
-		rb - rw + 1.0, // this can occasionally exceed 1.0 but it seems saving as non-32-bit automatically clips this to [0.0, 1.0]
+		(rb - rw + 1.0).clamp(0.0, 1.0),
 		0.0, 0.0, 0.0
 	);
 
@@ -102,15 +104,10 @@ fn magic(black_pixel: [f32; 3], white_pixel: [f32; 3], blend: &Blend) -> [f64; 4
 	return [rs, gs, bs, alpha];
 }
 
-const SCALAR8: f64 = 255.0;
-const SCALAR16: f64 = 65535.0;
+const SCALAR: f64 = 65535.0;
 
 fn main() -> Result<(), Error> {
 	let args = Args::parse();
-
-	// println!("black path: {}", args.black.display());
-	// println!("white path: {}", args.white.display());
-	// println!("out path: {}", args.out.display());
 
 	println!("Loading images…");
 
@@ -124,83 +121,52 @@ fn main() -> Result<(), Error> {
 
 	preflight_checks(&black_image, &white_image).unwrap();
 
-	let image_dim = black_image.dimensions();
-
 	let color_type = black_image.color();
+	let format_name = if color_type.has_color() { "RGB" } else { "grayscale" };
+	let bits_per_channel = color_type.bits_per_pixel() / color_type.channel_count() as u16;
+	let image_dim = black_image.dimensions();
+	println!("Generating {format_name} output at {}×{} with {bits_per_channel} bits per channel…", image_dim.0, image_dim.1);
+
+	// Convert the input images to 32-bit RGB so we don't have to worry about integer overflow
 	let black_rgb = black_image.into_rgb32f();
 	let white_rgb = white_image.into_rgb32f();
 
-	let format_name = if color_type.has_color() { "RGB" } else { "grayscale" };
-	let bits_per_channel = color_type.bits_per_pixel() / color_type.channel_count() as u16;
-	println!("Generating {format_name} output at {}×{} with {bits_per_channel} bits per channel…", image_dim.0, image_dim.1);
+	// Generate the output image in RGBA16 space, regardless of the input
+	let mut out_image = ImageBuffer::new(image_dim.0, image_dim.1);
+	out_image.par_enumerate_pixels_mut().for_each(|(x, y, pixel)| {
+		let bp = black_rgb.get_pixel(x, y).0;
+		let wp = white_rgb.get_pixel(x, y).0;
+		let new = magic(bp, wp, &args.blend);
 
-	// TODO: please let there be a way to reduce the amount of code in this match block 😭
+		*pixel = image::Rgba([
+			(new[0] * SCALAR) as u16,
+			(new[1] * SCALAR) as u16,
+			(new[2] * SCALAR) as u16,
+			(new[3] * SCALAR) as u16,
+		]);
+	});
+
+	// Convert the generated image to the desired output format and save it
 	match color_type {
 		ColorType::L8 | ColorType::La8 => {
-			let mut luma_image = ImageBuffer::new(image_dim.0, image_dim.1);
-			for (x, y, pixel) in luma_image.enumerate_pixels_mut() {
-				let bp = black_rgb.get_pixel(x, y).0;
-				let wp = white_rgb.get_pixel(x, y).0;
-				let new = magic(bp, wp, &args.blend);
-
-				*pixel = image::LumaA([
-					(new[0] * SCALAR8) as u8,
-					(new[3] * SCALAR8) as u8,
-				]);
-			}
-
-			luma_image.save(args.out.as_path()).unwrap();
+			let luma = ImageRgba16(out_image).into_luma_alpha8();
+			luma.save_with_format(args.out.as_path(), ImageFormat::Png).unwrap();
 		}
 		ColorType::L16 | ColorType::La16 => {
-			let mut luma_image = ImageBuffer::new(image_dim.0, image_dim.1);
-			for (x, y, pixel) in luma_image.enumerate_pixels_mut() {
-				let bp = black_rgb.get_pixel(x, y).0;
-				let wp = white_rgb.get_pixel(x, y).0;
-				let new = magic(bp, wp, &args.blend);
-
-				*pixel = image::LumaA([
-					(new[0] * SCALAR16) as u16,
-					(new[3] * SCALAR16) as u16,
-				]);
-			}
-
-			luma_image.save(args.out.as_path()).unwrap();
+			let luma = ImageRgba16(out_image).into_luma_alpha16();
+			luma.save_with_format(args.out.as_path(), ImageFormat::Png).unwrap();
 		}
 		ColorType::Rgb8 | ColorType::Rgba8 => {
-			let mut rgb_image = ImageBuffer::new(image_dim.0, image_dim.1);
-			for (x, y, pixel) in rgb_image.enumerate_pixels_mut() {
-				let bp = black_rgb.get_pixel(x, y).0;
-				let wp = white_rgb.get_pixel(x, y).0;
-				let new = magic(bp, wp, &args.blend);
-
-				*pixel = image::Rgba([
-					(new[0] * SCALAR8) as u8,
-					(new[1] * SCALAR8) as u8,
-					(new[2] * SCALAR8) as u8,
-					(new[3] * SCALAR8) as u8,
-				]);
-			}
-
-			rgb_image.save(args.out.as_path()).unwrap();
+			let rgb = ImageRgba16(out_image).into_rgba8();
+			rgb.save_with_format(args.out.as_path(), ImageFormat::Png).unwrap();
 		}
 		ColorType::Rgb16 | ColorType::Rgba16 => {
-			let mut rgb_image = ImageBuffer::new(image_dim.0, image_dim.1);
-			for (x, y, pixel) in rgb_image.enumerate_pixels_mut() {
-				let bp = black_rgb.get_pixel(x, y).0;
-				let wp = white_rgb.get_pixel(x, y).0;
-				let new = magic(bp, wp, &args.blend);
-
-				*pixel = image::Rgba([
-					(new[0] * SCALAR16) as u16,
-					(new[1] * SCALAR16) as u16,
-					(new[2] * SCALAR16) as u16,
-					(new[3] * SCALAR16) as u16,
-				]);
-			}
-
-			rgb_image.save(args.out.as_path()).unwrap();
+			let rgb = ImageRgba16(out_image).into_rgba16();
+			rgb.save_with_format(args.out.as_path(), ImageFormat::Png).unwrap();
 		}
-		_ => {}
+		_ => {
+			println!("congrats, you hit an edge case! encountering {color_type:?} here shouldn't have been possible.")
+		}
 	}
 
 	println!("{} saved in {:.02}s!", args.out.file_name().unwrap().to_str().unwrap(), start.elapsed().as_secs_f64());
