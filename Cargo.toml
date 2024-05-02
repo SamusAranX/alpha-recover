@@ -1,6 +1,6 @@
 [package]
 name = "realpha"
-version = "1.0.0"
+version = "1.0.1"
 repository = "https://github.com/SamusAranX/realpha"
 edition = "2021"
 
@@ -23,5 +23,8 @@ ci = ["github"]
 installers = []
 # Target platforms to build apps for (Rust target-triple syntax)
 targets = ["aarch64-apple-darwin", "x86_64-apple-darwin", "x86_64-unknown-linux-gnu", "x86_64-pc-windows-msvc"]
+# Use a sane archive format
+unix-archive = ".zip"
+windows-archive = ".zip"
 # Publish jobs to run in CI
 pr-run-mode = "upload"

@@ -17,8 +17,9 @@ this tool will recover a version with an alpha channel that leaves effects intac
 
 ## Installation
 
-There are no prebuilt releases at the moment.
-To install realpha, clone this repository, then run `cargo install --path .` inside it.
+Prebuilt binaries for all relevant platforms can be found here: https://github.com/SamusAranX/realpha/releases/latest
+
+To install realpha from source, clone this repository, then run `cargo install --path .` inside it.
 
 ## Usage
 
