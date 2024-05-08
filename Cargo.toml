@@ -1,14 +1,18 @@
 [package]
 name = "realpha"
-version = "1.0.2"
+version = "1.0.3"
 repository = "https://github.com/SamusAranX/realpha"
 edition = "2021"
 rust-version = "1.77.2" # TODO: update to 1.78.0 once the github runners are updated
 
 [dependencies]
 clap = { version = "4.5.4", features = ["derive"] }
+const_format = "0.2.32"
 image = { version = "0.25.1", features = ["rayon"] }
 rayon = "1.10.0"
+
+[build-dependencies]
+chrono = "0.4.38"
 
 # The profile that 'cargo dist' will build with
 [profile.dist]

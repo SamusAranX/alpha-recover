@@ -3,10 +3,18 @@ use std::path::PathBuf;
 use std::time::Instant;
 
 use clap::Parser;
+use const_format::formatcp;
 use image::{ColorType, DynamicImage, GenericImageView, ImageBuffer, ImageFormat};
 use image::DynamicImage::ImageRgba16;
 use image::io::Reader as ImageReader;
 use rayon::iter::ParallelIterator;
+
+const GIT_HASH: &str = env!("GIT_HASH");
+const GIT_BRANCH: &str = env!("GIT_BRANCH");
+const GIT_VERSION: &str = env!("GIT_VERSION");
+const BUILD_DATE: &str = env!("BUILD_DATE");
+
+const CLAP_VERSION: &str = formatcp!("{GIT_VERSION} [{GIT_BRANCH}, {GIT_HASH}, {BUILD_DATE}]");
 
 #[derive(clap::ValueEnum, Clone, Default)]
 enum Blend {
@@ -17,8 +25,7 @@ enum Blend {
 }
 
 #[derive(Parser)]
-#[clap(version, about = "Derives an image with alpha channel from two alpha-less images")]
-#[command(version, about)]
+#[command(version = CLAP_VERSION, about = "Derives an image with alpha channel from two alpha-less images")]
 struct Args {
 	#[clap(short, long, value_enum, help = "Which image to take the color values from (mix is experimental)", default_value_t = Blend::default())]
 	blend: Blend,
@@ -106,7 +113,7 @@ fn magic(black_pixel: [f32; 3], white_pixel: [f32; 3], blend: &Blend) -> [f64; 4
 
 const SCALAR: f64 = 65535.0;
 
-fn main() -> Result<(), Error> {
+fn main() -> Result<(), String> {
 	let args = Args::parse();
 
 	println!("Loading images…");
@@ -165,7 +172,7 @@ fn main() -> Result<(), Error> {
 			rgb.save_with_format(args.out.as_path(), ImageFormat::Png).unwrap();
 		}
 		_ => {
-			println!("congrats, you hit an edge case! encountering {color_type:?} here shouldn't have been possible.")
+			return Err("congrats, you hit an edge case! encountering {color_type:?} here shouldn't have been possible.".parse().unwrap());
 		}
 	}
 
