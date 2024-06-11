@@ -19,22 +19,21 @@ const CLAP_VERSION: &str = formatcp!("{GIT_VERSION} [{GIT_BRANCH}, {GIT_HASH}, {
 #[derive(clap::ValueEnum, Clone, Default)]
 enum Blend {
 	White,
-	#[default]
-	Black,
+	#[default] Black,
 	Mix,
 }
 
 #[derive(Parser)]
 #[command(version = CLAP_VERSION, about = "Derives an image with alpha channel from two alpha-less images")]
 struct Args {
-	#[clap(short, long, value_enum, help = "Which image to take the color values from (mix is experimental)", default_value_t = Blend::default())]
+	#[arg(short, long, value_enum, help = "Which image to take the color values from (mix is experimental)", default_value_t = Blend::default())]
 	blend: Blend,
 
-	#[clap(help = "An image with a solid black background")]
+	#[arg(help = "An image with a solid black background")]
 	black: PathBuf,
-	#[clap(help = "An image with a solid white background")]
+	#[arg(help = "An image with a solid white background")]
 	white: PathBuf,
-	#[clap(help = "The output image")]
+	#[arg(help = "The output image")]
 	out: PathBuf,
 }
 

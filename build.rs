@@ -27,7 +27,7 @@ fn env_command<I, S>(env: &str, program: S, args: I) -> String
 
 fn main() {
 	env_command("GIT_HASH", "git", ["rev-parse", "--short", "HEAD"]);
-	env_command("GIT_BRANCH", "git", ["rev-parse", "--abbrev-ref", "HEAD"]);
+	env_command("GIT_BRANCH", "git", ["rev-parse", "--abbrev-ref", "HEAD"]); // TODO: git branch --show-current?
 	env_command("GIT_VERSION", "git", ["describe", "--tags", "--always", "--dirty"]);
 
 	print_env("BUILD_DATE", chrono::Utc::now().to_rfc3339_opts(SecondsFormat::Secs, true).as_str());
